@@ -61,7 +61,7 @@ class HiddenEncoder(nn.Module):
 
         encoded_image = self.conv_bns(imgs) # b c h w
         if self.is_attn:
-            encoded_image,_,_ = self.attn(encoded_image)
+            encoded_image = self.attn(encoded_image)
 
         concat = torch.cat([msgs, encoded_image, imgs], dim=1) # b l+c+3 h w
         im_w = self.after_concat_layer(concat)
