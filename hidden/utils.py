@@ -130,7 +130,7 @@ class ImageFolder:
         return img, 0
 
     def __len__(self):
-        return len(self.samples)
+        return min(len(self.samples), 1000)
 
 def get_dataloader(data_dir, transform=utils_img.default_transform, batch_size=128, shuffle=True, num_workers=8, custom=True):
     """ Get dataloader for the images in the data_dir. The data_dir must be of the form: input/0/... """
