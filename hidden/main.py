@@ -64,6 +64,10 @@ def get_parser():
     aa("--val_dir", type=str, default="coco/val")
     aa("--output_dir", type=str, default="output/", help="Output directory for logs and images (Default: /output)")
 
+    aa("--r", type=int, default=16, help="Integer hyperparameter 'r' (Default: 10)")
+    aa("--attn", type=utils.bool_inst, default=False, help="Boolean hyperparameter 'attn' (Default: False)")
+
+
     group = parser.add_argument_group('Marking parameters')
     aa("--num_bits", type=int, default=32, help="Number of bits of the watermark (Default: 32)")
     aa("--redundancy", type=int, default=1, help="Redundancy of the watermark (Default: 1)")
@@ -158,7 +162,7 @@ def main(params):
     # Build encoder
     print('building encoder...')
     if params.encoder == 'hidden':
-        encoder = models.HiddenEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh)
+        encoder = models.HiddenEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh,r=params.r,attn=params.attn)
     elif params.encoder == 'dvmark':
         encoder = models.DvmarkEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh)
     elif params.encoder == 'vit':
@@ -175,7 +179,7 @@ def main(params):
     # Build decoder
     print('building decoder...')
     if params.decoder == 'hidden':
-        decoder = models.HiddenDecoder(num_blocks=params.decoder_depth, num_bits=params.num_bits*params.redundancy, channels=params.decoder_channels)
+        decoder = models.HiddenDecoder(num_blocks=params.decoder_depth, num_bits=params.num_bits*params.redundancy, channels=params.decoder_channels,r=params.r,attn=params.attn)
     else:
         raise ValueError('Unknown decoder type')
     print('\ndecoder: \n%s'% decoder)

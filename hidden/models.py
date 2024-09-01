@@ -8,6 +8,7 @@
 import torch
 import torch.nn as nn
 from timm.models import vision_transformer
+from cbam import CBAM
 
 import attenuations
 
@@ -32,13 +33,18 @@ class HiddenEncoder(nn.Module):
     """
     Inserts a watermark into an image.
     """
-    def __init__(self, num_blocks, num_bits, channels, last_tanh=True):
+    def __init__(self, num_blocks, num_bits, channels,r=16, last_tanh=True,attn=False):
         super(HiddenEncoder, self).__init__()
+
+        self.is_attn = attn
+
         layers = [ConvBNRelu(3, channels)]
 
         for _ in range(num_blocks-1):
             layer = ConvBNRelu(channels, channels)
             layers.append(layer)
+        
+        self.attn = CBAM(channels=channels,r=r)
 
         self.conv_bns = nn.Sequential(*layers)
         self.after_concat_layer = ConvBNRelu(channels + 3 + num_bits, channels)
@@ -54,6 +60,8 @@ class HiddenEncoder(nn.Module):
         msgs = msgs.expand(-1,-1, imgs.size(-2), imgs.size(-1)) # b l h w
 
         encoded_image = self.conv_bns(imgs) # b c h w
+        if self.is_attn:
+            encoded_image,_,_ = self.attn(encoded_image)
 
         concat = torch.cat([msgs, encoded_image, imgs], dim=1) # b l+c+3 h w
         im_w = self.after_concat_layer(concat)
@@ -70,13 +78,15 @@ class HiddenDecoder(nn.Module):
     The input image may have various kinds of noise applied to it,
     such as Crop, JpegCompression, and so on. See Noise layers for more.
     """
-    def __init__(self, num_blocks, num_bits, channels):
+    def __init__(self, num_blocks, num_bits, channels,r=16,attn=False):
 
         super(HiddenDecoder, self).__init__()
 
         layers = [ConvBNRelu(3, channels)]
         for _ in range(num_blocks - 1):
             layers.append(ConvBNRelu(channels, channels))
+        if attn:
+            layers.append(CBAM(channels=channels,r=r))
 
         layers.append(ConvBNRelu(channels, num_bits))
         layers.append(nn.AdaptiveAvgPool2d(output_size=(1, 1)))
