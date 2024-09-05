@@ -23,7 +23,7 @@ class ChannelAttention(nn.Module):
         max = self.mlp(max.view(b,c)).view(b,c,1,1)
 
         out = F.sigmoid(avg + max)
-        return x*out,out
+        return out*x
 
 class SpatialAttention(nn.Module):
     def __init__(self) -> None:
@@ -40,7 +40,7 @@ class SpatialAttention(nn.Module):
         out = self.conv(out)
         out = F.sigmoid(out)
 
-        return out*x,out
+        return out*x
 
 class CBAM(nn.Module):
     def __init__(self,channels:int,r:int) -> None:
@@ -50,17 +50,15 @@ class CBAM(nn.Module):
         self.sab = SpatialAttention()
 
     def forward(self, x):
-        out,c = self.cab(x)
-        out,s= self.sab(out)
-        return out+x
+        out = self.cab(x)
+        out= self.sab(out)
+        return out
 
 if __name__ == "__main__":
 
     cbam = CBAM(64, 16)
     x = torch.rand((8, 64, 256, 256))
-    out,c,s = cbam(x)
+    out = cbam(x)
     
     print("Input shape:", x.shape)
     print("Output shape:", out.shape)
-    print("Channel attention output shape:", c.shape)
-    print("Spatial attention output shape:", s.shape)
