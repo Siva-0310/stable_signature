@@ -16,7 +16,7 @@ class ConvBNRelu(nn.Module):
     """
     Building block used in HiDDeN network. Is a sequence of Convolution, Batch Normalization, and ReLU activation
     """
-    def __init__(self, channels_in, channels_out):
+    def __init__(self, channels_in, channels_out,r=16,is_attn = False):
 
         super(ConvBNRelu, self).__init__()
         
@@ -26,25 +26,43 @@ class ConvBNRelu(nn.Module):
             nn.GELU()
         )
 
+        if is_attn:
+            self.layers.append(CBAM(channels=channels_out,r=r))
+
     def forward(self, x):
         return self.layers(x)
+
+class ResidualBlock(nn.Module):
+    def __init__(self,channels,r=16,is_attn=False) -> None:
+
+        super().__init__()
+        
+        self.layers = nn.Sequential(
+            ConvBNRelu(channels,channels),
+            ConvBNRelu(channels,channels)
+        )
+
+        if is_attn:
+            self.layers.append(CBAM(channels=channels,r=r))
+    
+    def forward(self,x):
+
+        out = self.layers(x)
+        return x + out
 
 class HiddenEncoder(nn.Module):
     """
     Inserts a watermark into an image.
     """
-    def __init__(self, num_blocks, num_bits, channels,r=16, last_tanh=True,attn=False):
+    def __init__(self, num_blocks, num_bits, channels,r=16, last_tanh=True,is_attn=False,is_residual=False):
         super(HiddenEncoder, self).__init__()
 
-        self.is_attn = attn
 
         layers = [ConvBNRelu(3, channels)]
-
+            
         for _ in range(num_blocks-1):
-            layer = ConvBNRelu(channels, channels)
+            layer = ResidualBlock(channels,r,is_attn) if is_residual else ConvBNRelu(channels, channels,is_attn=is_attn,r=r)
             layers.append(layer)
-        
-        self.attn = CBAM(channels=channels,r=r)
 
         self.conv_bns = nn.Sequential(*layers)
         self.after_concat_layer = ConvBNRelu(channels + 3 + num_bits, channels)
@@ -60,8 +78,6 @@ class HiddenEncoder(nn.Module):
         msgs = msgs.expand(-1,-1, imgs.size(-2), imgs.size(-1)) # b l h w
 
         encoded_image = self.conv_bns(imgs) # b c h w
-        if self.is_attn:
-            encoded_image = self.attn(encoded_image)
 
         concat = torch.cat([msgs, encoded_image, imgs], dim=1) # b l+c+3 h w
         im_w = self.after_concat_layer(concat)
@@ -78,15 +94,14 @@ class HiddenDecoder(nn.Module):
     The input image may have various kinds of noise applied to it,
     such as Crop, JpegCompression, and so on. See Noise layers for more.
     """
-    def __init__(self, num_blocks, num_bits, channels,r=16,attn=False):
+    def __init__(self, num_blocks, num_bits, channels,r=16,is_attn=False,is_residual=False):
 
         super(HiddenDecoder, self).__init__()
 
         layers = [ConvBNRelu(3, channels)]
         for _ in range(num_blocks - 1):
-            layers.append(ConvBNRelu(channels, channels))
-        if attn:
-            layers.append(CBAM(channels=channels,r=r))
+            layer = ResidualBlock(channels,r,is_attn) if is_residual else ConvBNRelu(channels, channels,is_attn=is_attn,r=r)
+            layers.append(layer)
 
         layers.append(ConvBNRelu(channels, num_bits))
         layers.append(nn.AdaptiveAvgPool2d(output_size=(1, 1)))
