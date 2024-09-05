@@ -66,6 +66,7 @@ def get_parser():
 
     aa("--r", type=int, default=16, help="Integer hyperparameter 'r' (Default: 10)")
     aa("--attn", type=utils.bool_inst, default=False, help="Boolean hyperparameter 'attn' (Default: False)")
+    aa("--residual",type=utils.bool_inst,default=False,help="Boolean hyperparameter 'residual' (Default: False)")
 
 
     group = parser.add_argument_group('Marking parameters')
@@ -162,7 +163,7 @@ def main(params):
     # Build encoder
     print('building encoder...')
     if params.encoder == 'hidden':
-        encoder = models.HiddenEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh,r=params.r,attn=params.attn)
+        encoder = models.HiddenEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh,r=params.r,is_attn=params.attn,is_residual=params.residual)
     elif params.encoder == 'dvmark':
         encoder = models.DvmarkEncoder(num_blocks=params.encoder_depth, num_bits=params.num_bits, channels=params.encoder_channels, last_tanh=params.use_tanh)
     elif params.encoder == 'vit':
@@ -179,7 +180,7 @@ def main(params):
     # Build decoder
     print('building decoder...')
     if params.decoder == 'hidden':
-        decoder = models.HiddenDecoder(num_blocks=params.decoder_depth, num_bits=params.num_bits*params.redundancy, channels=params.decoder_channels,r=params.r,attn=params.attn)
+        decoder = models.HiddenDecoder(num_blocks=params.decoder_depth, num_bits=params.num_bits*params.redundancy, channels=params.decoder_channels,r=params.r,is_attn=params.attn,is_residual=params.residual)
     else:
         raise ValueError('Unknown decoder type')
     print('\ndecoder: \n%s'% decoder)
